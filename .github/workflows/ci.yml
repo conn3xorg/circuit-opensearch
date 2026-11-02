@@ -84,24 +84,33 @@ jobs:
           curl -sSfk -u "$auth" -X PUT -H 'Content-Type: application/json' 'https://127.0.0.1:9200/books/_doc/1?refresh=true' -d '{"title":"The Left Hand of Darkness"}'
           curl -sSfk -u "$auth" 'https://127.0.0.1:9200/books/_search?q=title:darkness' | grep -q '"_id":"1"'
           EOF
+      # OpenSearch stays active with nothing listening, so the apply reaches the
+      # admin step while another process holds the port. The listener speaks TLS,
+      # as curl would send nothing to one that doesn't.
       - name: Another process on the port gets no password
         working-directory: examples/local
         env:
           TF_VAR_admin_password: Ci-only-Passw0rd!
         run: |
           sudo podman exec circuit-opensearch sh -ec '
-            command -v python3 >/dev/null || { apt-get -qq update && apt-get -qq install -y python3 || dnf -q install -y python3; } >/dev/null
-            systemctl stop opensearch
-            :
+            { command -v python3 && command -v openssl; } >/dev/null || { apt-get -qq update && apt-get -qq install -y python3 openssl || dnf -q install -y python3 openssl; } >/dev/null
+            install -d /etc/systemd/system/opensearch.service.d
+            printf "[Service]\nType=simple\nExecStartPre=\nExecStart=\nExecStart=/bin/sleep infinity\nExecStartPost=\nExecStop=\nExecReload=\n" > /etc/systemd/system/opensearch.service.d/ci.conf
+            systemctl daemon-reload
+            systemctl restart opensearch
+            openssl req -x509 -newkey rsa:2048 -nodes -keyout /tmp/listener.key -out /tmp/listener.crt -subj /CN=listener -days 1 2>/dev/null
+            chmod 644 /tmp/listener.key
           '
-          sudo podman exec -d circuit-opensearch sh -c 'cd /tmp && exec runuser -u nobody -- python3 -m http.server --bind 127.0.0.1 9200 > /tmp/listener.log 2>&1'
+          sudo podman exec -d circuit-opensearch sh -c 'cd /tmp && exec runuser -u nobody -- python3 -c "import http.server, ssl; s = http.server.HTTPServer((\"127.0.0.1\", 9200), http.server.SimpleHTTPRequestHandler); c = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); c.load_cert_chain(\"/tmp/listener.crt\", \"/tmp/listener.key\"); s.socket = c.wrap_socket(s.socket, server_side=True); s.serve_forever()" > /tmp/listener.log 2>&1'
           sleep 3
-          if conn3x apply -auto-approve; then echo "apply should have refused" >&2; exit 1; fi
+          if out=$(conn3x apply -auto-approve -no-color 2>&1); then echo "apply should have refused" >&2; exit 1; fi
+          printf '%s\n' "$out" | grep -q "did not accept admin_password"
           sudo podman exec circuit-opensearch sh -ec '
             pkill -f [h]ttp.server || true
             if grep -q _security /tmp/listener.log; then echo "the listener got a request" >&2; exit 1; fi
-            :
-            systemctl start opensearch
+            rm -r /etc/systemd/system/opensearch.service.d
+            systemctl daemon-reload
+            systemctl restart opensearch
             for _ in $(seq 60); do [ "$(curl -sk -o /dev/null -w "%{http_code}" https://127.0.0.1:9200/)" != 000 ] && break; sleep 2; done
           '
           conn3x apply -auto-approve
