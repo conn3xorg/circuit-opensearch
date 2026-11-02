@@ -96,10 +96,10 @@ jobs:
           '
           sudo podman exec -d circuit-opensearch sh -c 'cd /tmp && exec runuser -u nobody -- python3 -m http.server --bind 127.0.0.1 9200 > /tmp/listener.log 2>&1'
           sleep 3
-          ! conn3x apply -auto-approve
+          if conn3x apply -auto-approve; then echo "apply should have refused" >&2; exit 1; fi
           sudo podman exec circuit-opensearch sh -ec '
             pkill -f [h]ttp.server || true
-            ! grep -q _security /tmp/listener.log
+            if grep -q _security /tmp/listener.log; then echo "the listener got a request" >&2; exit 1; fi
             :
             systemctl start opensearch
             for _ in $(seq 60); do [ "$(curl -sk -o /dev/null -w "%{http_code}" https://127.0.0.1:9200/)" != 000 ] && break; sleep 2; done
