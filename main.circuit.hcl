@@ -67,6 +67,10 @@ locals {
 
   # Own certificates go over the demo ones, under the same names, so the
   # paths the demo installer wrote into opensearch.yml stay right.
+  # curl checks a pinned key even with -k, so the admin password only goes
+  # to the server holding the node certificate's own key.
+  pin = "--pinnedpubkey \"sha256//$(openssl x509 -in /etc/opensearch/esnode.pem -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl base64 -A)\""
+
   held = <<-EOT
     held() { p=$(printf ':%04X$' ${var.http_port}); u=$(id -u opensearch); cat /proc/net/tcp /proc/net/tcp6 2>/dev/null | awk -v p="$p" -v u="$u" '$4 == "0A" && $2 ~ p { n++; if ($8 != u && $8 != 0) b = 1 } END { exit !(n && !b) }'; }
   EOT
@@ -98,10 +102,17 @@ circuit "opensearch" {
     }
   }
 
-  # The checks below talk to OpenSearch's REST API with curl.
+  # The checks below talk to OpenSearch's REST API with curl, pinned to the
+  # node's key with openssl.
   step "curl" {
     package {
       name = "curl"
+    }
+  }
+
+  step "openssl" {
+    package {
+      name = "openssl"
     }
   }
 
@@ -208,13 +219,14 @@ circuit "opensearch" {
   # so a later change to admin_password would otherwise go unnoticed. This
   # fails the apply until the password works. It also waits out the few
   # seconds the plugin takes to load its index after a start. The password
-  # reaches curl on stdin, so it never shows in ps. The certificate isn't
-  # checked here, since it's named for the node, so the password is only sent
-  # to a port held by root or the opensearch user.
+  # reaches curl on stdin, so it never shows in ps. The certificate is named
+  # for the node rather than the address checked here, so instead of its
+  # name curl checks its key, pinned from esnode.pem, and the port is held
+  # by root or the opensearch user.
   step "admin" {
     command {
-      command = "${local.held} for _ in $(seq 90); do held && printf 'user = \"admin:%s\"\\n' \"$(cat ${local.password_file})\" | curl -sfk -K- -o /dev/null ${local.url}/_plugins/_security/authinfo && exit 0; sleep 2; done; echo 'OpenSearch did not accept admin_password as the admin password. OpenSearch sets it only on the first install, so change it in OpenSearch first, then here.' >&2; exit 1"
-      unless  = "${local.held} held && printf 'user = \"admin:%s\"\\n' \"$(cat ${local.password_file})\" | curl -sfk -K- -o /dev/null ${local.url}/_plugins/_security/authinfo"
+      command = "${local.held} for _ in $(seq 90); do held && printf 'user = \"admin:%s\"\\n' \"$(cat ${local.password_file})\" | curl -sfk ${local.pin} -K- -o /dev/null ${local.url}/_plugins/_security/authinfo && exit 0; sleep 2; done; echo 'OpenSearch did not accept admin_password as the admin password. OpenSearch sets it only on the first install, so change it in OpenSearch first, then here.' >&2; exit 1"
+      unless  = "${local.held} held && printf 'user = \"admin:%s\"\\n' \"$(cat ${local.password_file})\" | curl -sfk ${local.pin} -K- -o /dev/null ${local.url}/_plugins/_security/authinfo"
       triggers = {
         password = conn3x_file.opensearch__admin_password[each.key].revision
         restart  = conn3x_command.opensearch__restart[each.key].revision
