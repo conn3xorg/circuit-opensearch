@@ -37,9 +37,11 @@ locals {
   # which fails unless OPENSEARCH_INITIAL_ADMIN_PASSWORD is set. A package
   # step can't pass it, so the install is a command that reads it from the
   # root-only file. The installer only sets the password the first time.
+  # On an upgrade it has nothing to do, and on Fedora its failure there
+  # fails the whole dnf transaction, so it's skipped once OpenSearch is in.
   install = {
-    debian = "export OPENSEARCH_INITIAL_ADMIN_PASSWORD=\"$(cat ${local.password_file})\" DEBIAN_FRONTEND=noninteractive && apt-get install -y -q -o DPkg::Lock::Timeout=300 -o Dpkg::Options::=--force-confold opensearch=${local.v}"
-    redhat = "export OPENSEARCH_INITIAL_ADMIN_PASSWORD=\"$(cat ${local.password_file})\" && dnf -y -q install opensearch-${local.v}"
+    debian = "export OPENSEARCH_INITIAL_ADMIN_PASSWORD=\"$(cat ${local.password_file})\" DEBIAN_FRONTEND=noninteractive && if dpkg-query -W -f '$${db:Status-Status}' opensearch 2>/dev/null | grep -qx installed; then export DISABLE_INSTALL_DEMO_CONFIG=true; fi && apt-get install -y -q -o DPkg::Lock::Timeout=300 -o Dpkg::Options::=--force-confold opensearch=${local.v}"
+    redhat = "export OPENSEARCH_INITIAL_ADMIN_PASSWORD=\"$(cat ${local.password_file})\" && if rpm -q opensearch >/dev/null 2>&1; then export DISABLE_INSTALL_DEMO_CONFIG=true; fi && dnf -y -q install opensearch-${local.v}"
   }
   installed = {
     debian = "[ \"$(dpkg-query -W -f '$${db:Status-Status} $${Version}' opensearch 2>/dev/null)\" = 'installed ${local.v}' ]"
