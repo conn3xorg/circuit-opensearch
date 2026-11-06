@@ -16,7 +16,7 @@ variable "opensearch_admin_password" {
 }
 
 module "opensearch" {
-  source = "github.com/conn3xorg/circuit-opensearch?ref=v0.2.0"
+  source = "github.com/conn3xorg/circuit-opensearch?ref=v0.2.1"
 
   hosts                = { search = "192.168.1.40" }
   ssh_private_key_file = "~/.ssh/id_ed25519"
