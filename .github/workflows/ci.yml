@@ -125,6 +125,35 @@ jobs:
           '
           conn3x apply -auto-approve
           conn3x plan -detailed-exitcode
+      # A fresh host gets the previous release, then the circuit's own pin is
+      # applied over it, the way someone raises opensearch_version. A document
+      # indexed before the upgrade has to be found after it.
+      - name: Upgrade from OpenSearch 3.8.0 on a fresh host, then plan again with no changes
+        working-directory: examples/local
+        env:
+          CONTAINERFILE: ${{ github.workspace }}/conn3x/test/images/${{ matrix.distro }}/Containerfile
+          PODMAN: sudo podman
+          TF_VAR_admin_password: Ci-only-Passw0rd!
+        run: |
+          ./down.sh
+          ./up.sh
+          conn3x init
+          conn3x apply -auto-approve -var opensearch_version=3.8.0
+          sudo podman exec -i circuit-opensearch sh -eu <<'EOF'
+          auth='admin:Ci-only-Passw0rd!'
+          curl -sSfk -u "$auth" https://127.0.0.1:9200 | grep -q '"number" : "3.8.0"'
+          curl -sSfk -u "$auth" -X PUT -H 'Content-Type: application/json' 'https://127.0.0.1:9200/books/_doc/1?refresh=true' -d '{"title":"The Left Hand of Darkness"}'
+          EOF
+          conn3x apply -auto-approve
+          conn3x plan -detailed-exitcode
+      - name: Check the upgraded node runs 3.9.0, is healthy and kept its document
+        run: |
+          sudo podman exec -i circuit-opensearch sh -eu <<'EOF'
+          auth='admin:Ci-only-Passw0rd!'
+          curl -sSfk -u "$auth" https://127.0.0.1:9200 | grep -q '"number" : "3.9.0"'
+          curl -sSfk -u "$auth" https://127.0.0.1:9200/_cluster/health | tee /dev/stderr | grep -Eq '"status":"(green|yellow)"'
+          curl -sSfk -u "$auth" 'https://127.0.0.1:9200/books/_search?q=title:darkness' | grep -q '"_id":"1"'
+          EOF
       - name: Clean up
         if: always()
         working-directory: examples/local

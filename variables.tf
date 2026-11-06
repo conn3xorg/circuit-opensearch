@@ -41,7 +41,8 @@ variable "ssh_become" {
 variable "opensearch_version" {
   type        = string
   default     = "3.9.0"
-  description = "OpenSearch 3.x release to install, such as \"3.9.0\". Raising it upgrades OpenSearch in place."
+  nullable    = false
+  description = "OpenSearch 3.x release to install, such as \"3.9.0\". Raising it upgrades OpenSearch in place. Null means the default."
 
   validation {
     condition     = can(regex("^3\\.[0-9]+\\.[0-9]+$", var.opensearch_version))
