@@ -227,8 +227,10 @@ circuit "opensearch" {
   # by root or the opensearch user.
   step "admin" {
     command {
+      # conn3x-lint:ignore C3X004 the certificate is checked by --pinnedpubkey, which curl enforces even with -k, against the node's own key; the demo CA's private key is public, so trusting root-ca.pem would check less
       command = "${local.held} for _ in $(seq 90); do held && printf 'user = \"admin:%s\"\\n' \"$(cat ${local.password_file})\" | curl -sfk ${local.pin} -K- -o /dev/null ${local.url}/_plugins/_security/authinfo && exit 0; sleep 2; done; echo 'OpenSearch did not accept admin_password as the admin password. OpenSearch sets it only on the first install, so change it in OpenSearch first, then here.' >&2; exit 1"
-      unless  = "${local.held} held && printf 'user = \"admin:%s\"\\n' \"$(cat ${local.password_file})\" | curl -sfk ${local.pin} -K- -o /dev/null ${local.url}/_plugins/_security/authinfo"
+      # conn3x-lint:ignore C3X004 the certificate is checked by --pinnedpubkey, which curl enforces even with -k, against the node's own key; the demo CA's private key is public, so trusting root-ca.pem would check less
+      unless = "${local.held} held && printf 'user = \"admin:%s\"\\n' \"$(cat ${local.password_file})\" | curl -sfk ${local.pin} -K- -o /dev/null ${local.url}/_plugins/_security/authinfo"
       triggers = {
         password = conn3x_file.opensearch__admin_password[each.key].revision
         restart  = conn3x_command.opensearch__restart[each.key].revision
