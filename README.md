@@ -154,7 +154,7 @@ On each host, in order:
 
 ## Requirements
 
-Requires Conn3x v0.6.5 or later and systemd on each host, with outbound HTTPS to artifacts.opensearch.org. The droplets it was tested on had 4 GB of memory. The package takes about 1.1 GB of disk. amd64 and arm64.
+Requires Conn3x v0.28.0 or later and systemd on each host, with outbound HTTPS to artifacts.opensearch.org. The droplets it was tested on had 4 GB of memory. The package takes about 1.1 GB of disk. amd64 and arm64.
 
 ## Tested on
 
