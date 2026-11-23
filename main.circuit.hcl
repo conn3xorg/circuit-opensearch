@@ -196,8 +196,8 @@ circuit "opensearch" {
   # runs here rather than in a handler so the steps below find it running
   # with them. On a first apply it's what starts it.
   step "restart" {
-    command {
-      command = "systemctl restart opensearch"
+    service_action {
+      name = "opensearch"
       triggers = {
         package = conn3x_command.opensearch__package[each.key].revision
         config  = conn3x_block.opensearch__config[each.key].revision
@@ -233,7 +233,7 @@ circuit "opensearch" {
       unless = "${local.held} held && printf 'user = \"admin:%s\"\\n' \"$(cat ${local.password_file})\" | curl -sfk ${local.pin} -K- -o /dev/null ${local.url}/_plugins/_security/authinfo"
       triggers = {
         password = conn3x_file.opensearch__admin_password[each.key].revision
-        restart  = conn3x_command.opensearch__restart[each.key].revision
+        restart  = conn3x_service_action.opensearch__restart[each.key].revision
       }
     }
   }
