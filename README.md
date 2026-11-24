@@ -135,7 +135,7 @@ On each host, in order:
 | `ssh_known_hosts_file` | string | `null` | known_hosts file to check host keys against. When null, `~/.ssh/known_hosts`. Not used for a host object with `host_key`. |
 | `ssh_become` | bool | `false` | Run commands as root through sudo. Set it when `ssh_user` isn't root. |
 | `admin_password` | string | Required | Password for OpenSearch's `admin` user, set on the first install. Ephemeral and sensitive: pass it with `-var` or `TF_VAR_`. At least 8 characters with an uppercase letter, a lowercase letter, a digit and a special character, and no quotes, backslashes or spaces. |
-| `opensearch_version` | string | `"3.9.0"` | OpenSearch 3.x release to install. Raising it upgrades in place. |
+| `opensearch_version` | string | `"3.10.1"` | OpenSearch 3.x release to install. Raising it upgrades in place. |
 | `cluster_name` | string | `"opensearch"` | `cluster.name`. Changing it on a node with data stops OpenSearch from starting, since the data belongs to the old cluster. |
 | `listen_address` | string | `"127.0.0.1"` | IP address OpenSearch listens on, its `network.host`. `"0.0.0.0"` listens on every address. |
 | `http_port` | number | `9200` | Port of the REST API, its `http.port`. |
@@ -158,7 +158,7 @@ Requires Conn3x v0.28.0 or later and systemd on each host, with outbound HTTPS t
 
 ## Tested on
 
-Rocky Linux 10, Fedora 45, Ubuntu 24.04 and Debian 13, with OpenSearch 3.9.0. CI applies [examples/local](examples/local) to each on amd64, checks that the second plan has no changes, that cluster health is green or yellow, and indexes a document and finds it with a search. The same ran by hand on arm64, along with an upgrade from 3.8.0 to 3.9.0 on Ubuntu 24.04 and Rocky Linux 10, which kept the indexed document, a heap change, a wrong `admin_password`, which failed the apply with the message above, a password changed with the admin certificate and then in `admin_password`, and your own certificates on Fedora 45, checked with `curl --cacert` against the new CA.
+Rocky Linux 10, Fedora 45, Ubuntu 24.04 and Debian 13, with OpenSearch 3.10.1. CI applies [examples/local](examples/local) to each on amd64, checks that the second plan has no changes, that cluster health is green or yellow, and indexes a document and finds it with a search. The same ran by hand on arm64, along with upgrades from 3.8.0 to 3.9.0 on Ubuntu 24.04 and Rocky Linux 10 and from 3.9.0 to 3.10.1 on Rocky Linux 10, which kept the indexed document, a heap change, a wrong `admin_password`, which failed the apply with the message above, a password changed with the admin certificate and then in `admin_password`, and your own certificates on Fedora 45, checked with `curl --cacert` against the new CA.
 
 On an Ubuntu 24.04 droplet and a Rocky Linux 10 droplet with SELinux enforcing, both `s-2vcpu-4gb`, the circuit applied with `listen_address = "0.0.0.0"` and a 2 GB heap. Cluster health was green, and a document indexed from another machine was found by a search. Both came back after a reboot with OpenSearch running, the document still there and the second plan clean. On Rocky Linux OpenSearch runs as `unconfined_service_t`, and the audit log had no denials.
 

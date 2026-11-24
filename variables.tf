@@ -40,13 +40,13 @@ variable "ssh_become" {
 
 variable "opensearch_version" {
   type        = string
-  default     = "3.9.0"
+  default     = "3.10.1"
   nullable    = false
-  description = "OpenSearch 3.x release to install, such as \"3.9.0\". Raising it upgrades OpenSearch in place. Null means the default."
+  description = "OpenSearch 3.x release to install, such as \"3.10.1\". Raising it upgrades OpenSearch in place. Null means the default."
 
   validation {
     condition     = can(regex("^3\\.[0-9]+\\.[0-9]+$", var.opensearch_version))
-    error_message = "opensearch_version must be a full 3.x release, such as \"3.9.0\"."
+    error_message = "opensearch_version must be a full 3.x release, such as \"3.10.1\"."
   }
 }
 
